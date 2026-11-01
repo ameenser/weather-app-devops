@@ -1,0 +1,128 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-rs-init
+  namespace: mongodb-lab
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+
+spec:
+  backoffLimit: 10
+
+  template:
+    metadata:
+      labels:
+        app: mongodb-rs-init
+
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+        - name: init-replica-set
+          image: mongo:7.0.40
+
+          command:
+            - /bin/bash
+            - -c
+
+          args:
+            - |
+              set -e
+
+              MONGO0="mongo-0.mongodb-headless.mongodb-lab.svc.cluster.local"
+              MONGO1="mongo-1.mongodb-headless.mongodb-lab.svc.cluster.local"
+              MONGO2="mongo-2.mongodb-headless.mongodb-lab.svc.cluster.local"
+
+              echo "Waiting for MongoDB members..."
+
+              for host in "$MONGO0" "$MONGO1" "$MONGO2"; do
+                echo "Waiting for $host"
+
+                until mongosh \
+                  --host "$host" \
+                  --quiet \
+                  --eval 'db.adminCommand({ ping: 1 })' \
+                  >/dev/null 2>&1
+                do
+                  sleep 2
+                done
+
+                echo "$host is ready"
+              done
+
+              echo "All MongoDB members are reachable."
+
+              mongosh \
+                --host "$MONGO0" \
+                --quiet \
+                --eval '
+                  const config = {
+                    _id: "rs0",
+                    members: [
+                      {
+                        _id: 0,
+                        host: "mongo-0.mongodb-headless.mongodb-lab.svc.cluster.local:27017"
+                      },
+                      {
+                        _id: 1,
+                        host: "mongo-1.mongodb-headless.mongodb-lab.svc.cluster.local:27017"
+                      },
+                      {
+                        _id: 2,
+                        host: "mongo-2.mongodb-headless.mongodb-lab.svc.cluster.local:27017"
+                      }
+                    ]
+                  };
+
+                  try {
+                    const current = rs.conf();
+
+                    print("Replica set is already initialized.");
+                    printjson(current);
+
+                  } catch (e) {
+
+                    print("Replica set is not initialized.");
+                    print("Running rs.initiate()...");
+
+                    printjson(
+                      rs.initiate(config)
+                    );
+                  }
+                '
+
+              echo "Waiting for PRIMARY election..."
+
+              until mongosh \
+                --host "$MONGO0" \
+                --quiet \
+                --eval '
+                  try {
+                    print(
+                      rs.status().members.some(
+                        m => m.stateStr === "PRIMARY"
+                      ) ? "PRIMARY_READY" : "WAITING"
+                    );
+                  } catch(e) {
+                    print("WAITING");
+                  }
+                ' | grep -q PRIMARY_READY
+              do
+                sleep 2
+              done
+
+              echo "Replica set is ready."
+
+              mongosh \
+                --host "$MONGO0" \
+                --quiet \
+                --eval '
+                  printjson(
+                    rs.status().members.map(
+                      m => ({
+                        name: m.name,
+                        state: m.stateStr
+                      })
+                    )
+                  );
+                '

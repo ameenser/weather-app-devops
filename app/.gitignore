@@ -1,0 +1,61 @@
+__pycache__/
+*.pyc
+.idea/
+.venv/
+weather-eb-app-v2.zip
+
+# Terraform local state
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+*.tfvars
+
+# Local env/secrets
+.env
+*.pem
+*.key
+.venv/
+cosign.key
+
+# AWS credentials
+.aws/
+credentials
+
+# Terraform secrets and state
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# SSH keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Kubernetes secrets
+kubeconfig
+kubeconfig.*
+secrets.yaml
+secrets.yml
+*-secret.yaml
+*-secret.yml
+
+# Python
+__pycache__/
+.venv/
+venv/
+
+# Backups
+*.zip
+*.bak

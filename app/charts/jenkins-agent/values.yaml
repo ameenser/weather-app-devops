@@ -1,0 +1,17 @@
+replicaCount: 1
+
+image:
+  repository: jenkins/inbound-agent
+  tag: latest-jdk21
+  pullPolicy: IfNotPresent
+
+jenkins:
+  url: "http://jenkins.weather-app-as.com/"
+  agentName: "helm-eks-agent"
+  agentLabel: "helm-eks-agent"
+  workDir: "/home/jenkins/agent"
+  webSocket: "true"
+
+secret:
+  name: jenkins-agent-secret
+  key: JENKINS_SECRET

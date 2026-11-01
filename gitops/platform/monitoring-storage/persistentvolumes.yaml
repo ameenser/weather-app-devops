@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-fabc97d6-bc50-4795-802e-5c0c03f2991c
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: prometheus
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp3
+  csi:
+    driver: ebs.csi.aws.com
+    volumeHandle: vol-0c0921a95fd9b5893
+    fsType: ext4
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/zone
+              operator: In
+              values:
+                - us-east-1b
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-3aa12451-e429-4c70-9cc2-ed8984dd7e3a
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: grafana
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp3
+  csi:
+    driver: ebs.csi.aws.com
+    volumeHandle: vol-0e5c29dd69c4cf47c
+    fsType: ext4
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/zone
+              operator: In
+              values:
+                - us-east-1b
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-ca828699-f4a8-4d51-9dd7-0f3a2319b972
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: alertmanager
+spec:
+  capacity:
+    storage: 2Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp3
+  csi:
+    driver: ebs.csi.aws.com
+    volumeHandle: vol-0df5ea00e65648ab1
+    fsType: ext4
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/zone
+              operator: In
+              values:
+                - us-east-1a

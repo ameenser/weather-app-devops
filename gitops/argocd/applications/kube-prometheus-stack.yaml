@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+
+spec:
+  project: default
+
+  sources:
+    # Source 1: the official Helm chart.
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 87.16.1
+
+      helm:
+        releaseName: kube-prometheus-stack
+        valueFiles:
+          - $values/platform/monitoring/values.yaml
+
+    # Source 2: our values file from GitLab.
+    - repoURL: http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git
+      targetRevision: main
+      ref: values
+
+    # Source 3: static PV/PVC bindings for the retained EBS volumes.
+    - repoURL: http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git
+      targetRevision: main
+      path: platform/monitoring-storage
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,7 @@
+services:
+  weather_app:
+    image: ameenser/weather-app:${IMAGE_TAG:-latest}
+    container_name: weather-app
+    ports:
+      - "8000:8000"
+    restart: always

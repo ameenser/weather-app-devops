@@ -1,0 +1,67 @@
+image:
+  repository: docker.n8n.io/n8nio/n8n
+  tag: "2.31.4"
+  pullPolicy: IfNotPresent
+
+# Standalone mode: one n8n Pod using SQLite.
+queueMode:
+  enabled: false
+
+database:
+  type: sqlite
+  useExternal: false
+
+redis:
+  enabled: false
+
+replicaCount: 1
+
+# The PVC is ReadWriteOnce, so the old Pod must stop
+# before Kubernetes starts the replacement Pod.
+strategy:
+  type: Recreate
+
+secretRefs:
+  existingSecret: n8n-secrets
+
+persistence:
+  enabled: true
+  storageClassName: gp3
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+
+service:
+  type: ClusterIP
+  port: 5678
+
+# We expose it only after the internal deployment works.
+ingress:
+  enabled: false
+
+config:
+  timezone: Asia/Jerusalem
+
+  extraEnv:
+    - name: NODE_FUNCTION_ALLOW_BUILTIN
+      value: "fs,https"
+    - name: WEBHOOK_URL
+      value: "https://logs.weather-app-as.com/"
+    - name: N8N_EDITOR_BASE_URL
+      value: "https://n8n.weather-app-as.com/"
+    - name: N8N_PROXY_HOPS
+      value: "1"
+
+resources:
+  main:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# A PDB with minAvailable: 1 can block node draining
+# when there is only one replica.
+pdb:
+  enabled: false

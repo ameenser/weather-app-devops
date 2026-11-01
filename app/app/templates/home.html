@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Weather App{% endblock %}
+
+{% block content %}
+
+<div class="text-center mb-4">
+    <h1 class="text-primary">Weather App</h1>
+    <p class="text-muted">Global Weather Center - changed-v5</p>
+</div>
+
+<form method="GET" action="{{ url_for('locations') }}">
+    <div class="input-group">
+        <input
+            type="text"
+            name="location"
+            class="form-control"
+            placeholder="Example: London or London, United Kingdom"
+        >
+
+        <button class="btn btn-primary" type="submit">
+            Search
+        </button>
+
+        <div class="text-center mt-4">
+            <a href="/download-sky" class="btn btn-success">
+            Download Sky Image</a>
+        </div>
+        
+    </div>
+</form>
+
+{% if error %}
+    <div class="alert alert-danger mt-3 text-center">
+        {{ error }}
+    </div>
+{% endif %}
+
+{% endblock %}

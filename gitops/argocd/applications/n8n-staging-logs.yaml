@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: n8n-staging-logs
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git
+    targetRevision: main
+    path: platform/n8n-staging-logs
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wa-staging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,36 @@
+# AWS
+.aws/
+credentials
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+kubeconfig
+kubeconfig.*
+secrets.yaml
+secrets.yml
+*-secret.yaml
+*-secret.yml
+
+# Local files
+__pycache__/
+.venv/
+venv/
+*.zip
+*.bak

@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: n8n-public
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git
+    targetRevision: main
+    path: platform/n8n-public
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: n8n
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

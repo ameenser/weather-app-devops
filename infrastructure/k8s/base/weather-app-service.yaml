@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    meta.helm.sh/release-name: weather-app
+    meta.helm.sh/release-namespace: weather-app
+  creationTimestamp: "2026-07-06T06:12:31Z"
+  labels:
+    app: weather-app
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: weather-app
+  name: weather-app-nodeport
+  namespace: weather-app
+  resourceVersion: "3016"
+  uid: 9111233f-60e3-48fc-a803-3ccfb13a54cd
+spec:
+  clusterIP: 172.20.148.11
+  clusterIPs:
+  - 172.20.148.11
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30080
+    port: 80
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: weather-app
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}

@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: weather-app-prod
+  namespace: argocd
+
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git
+    targetRevision: main
+    path: charts/weather-app
+
+    helm:
+      valueFiles:
+        - values-prod.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wa-prod
+
+  # Production remains manual.
+  syncPolicy: {}

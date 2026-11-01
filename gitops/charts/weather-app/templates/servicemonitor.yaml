@@ -1,0 +1,20 @@
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: weather-app
+
+spec:
+  selector:
+    matchLabels:
+      app: weather-app
+
+  endpoints:
+    - port: http
+      path: {{ .Values.monitoring.serviceMonitor.path | quote }}
+      interval: {{ .Values.monitoring.serviceMonitor.interval | quote }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout | quote }}
+{{- end }}

@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-6ccdec86-3a2c-4110-9e1e-afe4a88ab0a5
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: n8n
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: argocd
+
+spec:
+  capacity:
+    storage: 5Gi
+
+  volumeMode: Filesystem
+
+  accessModes:
+    - ReadWriteOnce
+
+  persistentVolumeReclaimPolicy: Retain
+
+  storageClassName: gp3
+
+  csi:
+    driver: ebs.csi.aws.com
+    volumeHandle: vol-0f4adaaa83e7ff5bd
+    fsType: ext4
+
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/zone
+              operator: In
+              values:
+                - us-east-1a

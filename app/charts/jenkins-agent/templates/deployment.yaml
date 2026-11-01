@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-agent
+  labels:
+    app: jenkins-agent
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: jenkins-agent
+  template:
+    metadata:
+      labels:
+        app: jenkins-agent
+        jenkins-agent-label: {{ .Values.jenkins.agentLabel | quote }}
+    spec:
+      containers:
+        - name: jenkins-agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: JENKINS_URL
+              value: {{ .Values.jenkins.url | quote }}
+            - name: JENKINS_AGENT_NAME
+              value: {{ .Values.jenkins.agentName | quote }}
+            - name: JENKINS_AGENT_WORKDIR
+              value: {{ .Values.jenkins.workDir | quote }}
+            - name: JENKINS_WEB_SOCKET
+              value: {{ .Values.jenkins.webSocket | quote }}
+            - name: JENKINS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name | quote }}
+                  key: {{ .Values.secret.key | quote }}

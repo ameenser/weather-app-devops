@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weather-app-config
+data:
+  CHANGE_BACKGROUND_COLOR: {{ .Values.changeBackgroundColor | quote }}
+  APP_ENV: {{ .Values.appEnv | quote }}

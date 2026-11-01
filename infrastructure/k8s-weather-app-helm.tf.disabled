@@ -1,0 +1,40 @@
+locals {
+  weather_app_helm_releases = {
+    staging = {
+      release_name = "weather-app-staging"
+      namespace    = "wa-staging"
+      values_file  = "${path.module}/charts/weather-app/values-staging.yaml"
+    }
+
+    prod = {
+      release_name = "weather-app-prod"
+      namespace    = "wa-prod"
+      values_file  = "${path.module}/charts/weather-app/values-prod.yaml"
+    }
+  }
+}
+
+
+resource "helm_release" "weather_app" {
+  for_each = local.weather_app_helm_releases
+
+  name      = each.value.release_name
+  namespace = each.value.namespace
+  chart     = "${path.module}/charts/weather-app"
+
+  values = [
+    file(each.value.values_file)
+  ]
+
+  create_namespace = false
+  atomic           = true
+  wait             = true
+  timeout          = 300
+
+  depends_on = [
+    kubernetes_namespace_v1.weather_app_envs,
+    helm_release.aws_load_balancer_controller,
+    terraform_data.vault_bootstrap,
+    terraform_data.sync_dockerhub_secret_from_vault
+  ]
+}

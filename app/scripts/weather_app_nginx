@@ -1,0 +1,37 @@
+limit_req_zone $binary_remote_addr zone=req_limit:10m rate=1r/s;
+limit_conn_zone $binary_remote_addr zone=conn_limit:10m;
+
+server {
+
+    listen 80;
+    server_name 10.1.0.167;
+
+    return 301 https://$host$request_uri;
+
+}
+
+server {
+    listen 9090;
+    server_name 10.1.0.167;
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name 10.1.0.167;
+
+    ssl_certificate /etc/nginx/ssl/nginx-selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/nginx-selfsigned.key;
+
+    deny 10.1.0.47;
+    allow all;
+
+    location / {
+        limit_req zone=req_limit burst=5 nodelay;
+        limit_conn conn_limit 5;
+
+        proxy_pass http://127.0.0.1:8000;
+    }
+}
+

@@ -1,0 +1,33 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-alerts
+  labels:
+    app: weather-app
+spec:
+  groups:
+    - name: weather-app.rules
+      rules:
+        - alert: WeatherAppPodRestartDetected
+          expr: |
+            sum by (namespace, pod, container) (
+              increase(
+                kube_pod_container_status_restarts_total{
+                  namespace="{{ .Release.Namespace }}",
+                  pod=~"weather-app-.*"
+                }[{{ .Values.monitoring.prometheusRule.restartWindow }}]
+              )
+            ) > 0
+          for: 0m
+          labels:
+            severity: warning
+            application: weather-app
+          annotations:
+            summary: "Weather App container restarted"
+            description: >-
+              Pod {{`{{ $labels.pod }}`}} in namespace
+              {{`{{ $labels.namespace }}`}} restarted.
+              Container: {{`{{ $labels.container }}`}}.
+              Restart increase: {{`{{ $value }}`}}.
+{{- end }}

@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-kube-prometheus-stack-prometheus-db-prometheus-kube-prometheus-stack-prometheus-0
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: gp3
+  volumeName: pvc-fabc97d6-bc50-4795-802e-5c0c03f2991c
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kube-prometheus-stack-grafana
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: gp3
+  volumeName: pvc-3aa12451-e429-4c70-9cc2-ed8984dd7e3a
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alertmanager-kube-prometheus-stack-alertmanager-db-alertmanager-kube-prometheus-stack-alertmanager-0
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: alertmanager
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: gp3
+  volumeName: pvc-ca828699-f4a8-4d51-9dd7-0f3a2319b972
+  resources:
+    requests:
+      storage: 2Gi

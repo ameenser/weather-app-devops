@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Choose Location{% endblock %}
+
+{% block content %}
+
+<div class="text-center mb-4">
+    <h1 class="text-primary">Choose Location</h1>
+    <p class="text-muted">Results for: {{ search_value }}</p>
+</div>
+
+<div class="list-group">
+    {% for loc in locations %}
+        <a
+            href="{{ url_for('forecast',
+                lat=loc.latitude,
+                lon=loc.longitude,
+                name=loc.name,
+                country=loc.country
+                ) }}"
+            class="list-group-item list-group-item-action">
+
+            <strong>{{ loc.name }}</strong>, {{ loc.country }}
+
+            {% if loc.admin1 %}
+                - {{ loc.admin1 }}
+            {% endif %}
+
+            {% if loc.admin2 %}
+                - {{ loc.admin2 }}
+            {% endif %}
+        </a>
+    {% endfor %}
+</div>
+
+<div class="mt-4 text-center">
+    <a href="/" class="btn btn-primary">
+        Back to Search
+    </a>
+</div>
+
+{% endblock %}

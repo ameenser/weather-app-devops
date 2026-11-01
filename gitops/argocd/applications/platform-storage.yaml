@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: platform-storage
+  namespace: argocd
+
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git
+    targetRevision: main
+    path: platform/storage
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

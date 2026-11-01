@@ -1,0 +1,41 @@
+aws_region = "us-east-1"
+
+
+vpc_cidr = "10.50.0.0/16"
+
+public_subnet_1_cidr  = "10.50.1.0/24"
+public_subnet_2_cidr  = "10.50.2.0/24"
+private_subnet_1_cidr = "10.50.11.0/24"
+private_subnet_2_cidr = "10.50.12.0/24"
+
+availability_zone_1 = "us-east-1a"
+availability_zone_2 = "us-east-1b"
+
+key_name = "jenkins-agent-key"
+
+my_ip = "5.29.12.129/32"
+
+gitlab_ami_id             = "ami-0a1e46f6507e0a097"
+jenkins_agent_ami_id      = "ami-0b3d3e10c4d0e32b2"
+jenkins_controller_ami_id = "ami-063bf669e00241ce9"
+
+gitlab_data_volume_id   = "vol-0f57b3ad1b1c72040"
+
+jenkins_home_volume_id   = "vol-0938c2e5e9e0a43f0"
+
+
+gitlab_instance_type             = "t3.large"
+jenkins_controller_instance_type = "t3.medium"
+jenkins_agent_instance_type      = "t3.micro"
+
+internal_domain = "golden-ami.internal"
+
+project_name = "weather-app"
+
+jenkins_internal_url = "http://jenkins.weather-app-as.com/"
+jenkins_url          = "http://jenkins.weather-app-as.com"
+
+
+
+
+app_node_port  = 30080

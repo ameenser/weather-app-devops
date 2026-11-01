@@ -1,0 +1,39 @@
+replicaCount: 2
+
+
+image:
+  repository: ameenser/weather-app
+  tag: latest
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: dockerhub-secret
+
+appEnv: development
+
+containerPort: 8000
+
+service:
+  name: weather-app-nodeport
+  type: NodePort
+  port: 80
+  targetPort: 8000
+  nodePort: 30080
+
+changeBackgroundColor: "true"
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+  alertmanagerConfig:
+    enabled: false
+    secretName: weather-app-slack-webhook
+    secretKey: url
+
+  prometheusRule:
+    enabled: false
+    restartWindow: 5m

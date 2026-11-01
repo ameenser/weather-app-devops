@@ -1,0 +1,15 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: n8n-main-alb
+  namespace: n8n
+  labels:
+    app.kubernetes.io/name: n8n
+    app.kubernetes.io/managed-by: argocd
+spec:
+  serviceRef:
+    name: n8n-main
+    port: 5678
+
+  targetGroupName: weather-app-n8n-tg
+  targetType: ip

@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: fluent-bit
+  namespace: argocd
+
+spec:
+  project: default
+
+  sources:
+    # Source 1: official Fluent Bit Helm chart.
+    - repoURL: https://fluent.github.io/helm-charts
+      chart: fluent-bit
+      targetRevision: 0.57.9
+
+      helm:
+        releaseName: fluent-bit
+        valueFiles:
+          - $values/platform/logging/fluent-bit-values.yaml
+
+    # Source 2: values file from our GitOps repository.
+    - repoURL: http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

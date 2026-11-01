@@ -1,0 +1,615 @@
+pipeline {
+    agent {
+        kubernetes {
+            cloud 'k8s'
+            inheritFrom 'k8s-agent'
+            defaultContainer 'jnlp'
+        }
+    }
+    options {
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
+    }
+
+    parameters {
+        booleanParam(
+            name: 'TEST_FAILURE_ANALYZER',
+            defaultValue: false,
+            description: 'Intentionally fail before build/deployment to test the n8n analyzer'
+        )
+    }
+
+    environment {
+        IMAGE_NAME = "ameenser/weather-app"
+        MAKE_WEBHOOK_URL = credentials('make-webhook-url')
+    }
+
+    stages {
+        stage('Agent Smoke Test') {
+            steps {
+                sh '''
+                echo "Running on Kubernetes dynamic Jenkins agent"
+                hostname
+                whoami
+                pwd
+                ls -la
+                '''
+            }
+        }
+        stage('Get Code') {
+	    steps {
+		script {
+		    def scmVars = checkout scm
+
+		    env.GIT_COMMIT = scmVars.GIT_COMMIT ?: sh(
+		        script: 'git rev-parse HEAD',
+		        returnStdout: true
+		    ).trim()
+		}
+
+		sh '''
+		    git log --oneline -1
+		    echo "BRANCH_NAME=$BRANCH_NAME"
+		    echo "TAG_NAME=$TAG_NAME"
+		    echo "GIT_COMMIT=$GIT_COMMIT"
+		'''
+	    }
+	}
+        stage('Test Failure Analyzer') {
+            when {
+                expression {
+                    return params.TEST_FAILURE_ANALYZER
+                }
+            }
+
+            steps {
+                script {
+                    env.FAILED_STAGE = env.STAGE_NAME
+
+                    error(
+                        'Intentional failure before build and deployment ' +
+                        'for n8n analyzer validation'
+                    )
+                }
+            }
+        }
+
+        stage('Set Version') {
+            steps {
+                script {
+                    def shortCommit = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                def detectedTag = env.TAG_NAME ?: ""
+
+                if (!detectedTag && ((env.BRANCH_NAME ?: "") ==~ /^v\d+\.\d+\.\d+$/)) {
+                    detectedTag = env.BRANCH_NAME
+                }
+
+                if (detectedTag ==~ /^v\d+\.\d+\.\d+$/) {
+                    env.APP_VERSION = detectedTag.replaceFirst(/^v/, '')
+                    env.IMAGE_TAG = env.APP_VERSION
+                    env.IS_RELEASE = "true"
+                    env.PIPELINE_TYPE = "release"
+                } else if (env.BRANCH_NAME == "main") {
+                    env.IMAGE_TAG = "main-${shortCommit}"
+                    env.IS_RELEASE = "false"
+                    env.PIPELINE_TYPE = "main"
+                } else if (env.BRANCH_NAME == "develop") {
+                    env.IMAGE_TAG = "dev-${shortCommit}"
+                    env.IS_RELEASE = "false"
+                    env.PIPELINE_TYPE = "develop"
+                } else if (env.BRANCH_NAME?.startsWith("feature/")) {
+                    def safeBranch = env.BRANCH_NAME.replaceAll('/', '-')
+                    env.IMAGE_TAG = "${safeBranch}-${shortCommit}"
+                    env.IS_RELEASE = "false"
+                    env.PIPELINE_TYPE = "feature"
+                } else {
+                    def safeBranch = env.BRANCH_NAME?.replaceAll('/', '-') ?: "unknown"
+                    env.IMAGE_TAG = "${safeBranch}-${shortCommit}"
+                    env.IS_RELEASE = "false"
+                    env.PIPELINE_TYPE = "other"
+                }
+
+                echo "Pipeline type: ${env.PIPELINE_TYPE}"
+                echo "Branch: ${env.BRANCH_NAME}"
+                echo "Tag: ${env.TAG_NAME}"
+                echo "Image tag: ${env.IMAGE_TAG}"
+                echo "Is release: ${env.IS_RELEASE}"
+                }
+	        }
+	    }
+	    
+	stage('Dependency Security Scan') {
+	    steps {
+		container('docker') {
+		    sh '''
+		        set -eux
+
+		        docker run --rm \
+		            -v "$WORKSPACE:/workspace" \
+		            aquasec/trivy:0.74.0 \
+		            fs \
+		            --scanners vuln \
+		            --severity CRITICAL \
+		            --exit-code 1 \
+		            /workspace
+		    '''
+		}
+	    }
+	}
+        stage('Install Dependencies') {
+            steps {
+                container('python') {
+                    sh '''
+                        python -m venv .venv
+                        .venv/bin/pip install --upgrade pip
+                        .venv/bin/pip install -r requirements.txt
+                        .venv/bin/pip install pylint
+                    '''
+                }
+            }
+        }
+        stage('Unit Tests') {
+	    steps {
+		container('python') {
+		    sh '''
+		        export PYTHONPATH="$WORKSPACE:$WORKSPACE/app"
+
+		        .venv/bin/python -m pytest \
+		            tests/test_zero_coordinates.py \
+		            -v
+		    '''
+		}
+	    }
+
+	    post {
+		failure {
+		    script {
+		        env.FAILED_STAGE = 'Unit Tests'
+		    }
+		}
+	    }
+	}
+
+        stage('Pylint') {
+            steps {
+                container('python') {
+                    sh '''
+                        export PYTHONPATH=$WORKSPACE:$WORKSPACE/app
+                        .venv/bin/python -m pylint app/*.py --fail-under=5
+                    '''
+                }
+            }
+        }
+        stage('SAST - Semgrep') {
+	    when {
+		branch 'main'
+	    }
+
+	    steps {
+		container('docker') {
+		    sh '''
+		        set -eux
+
+		        docker run --rm \
+		            -v "$WORKSPACE:/src" \
+		            semgrep/semgrep \
+		            semgrep scan \
+		            --config=auto \
+		            /src/app
+		    '''
+		}
+	    }
+	}
+        stage('Check Docker') {
+            steps {
+                container('docker') {
+                    sh '''
+                        set -eux
+
+                        echo "Waiting for Docker daemon..."
+
+                        for i in $(seq 1 30); do
+                            docker info && break
+                            sleep 2
+                        done
+
+                        docker version
+                        docker info
+                    '''
+                }
+            }
+        }
+        stage('Dockerfile Security Scan') {
+	    steps {
+		container('docker') {
+		    sh '''
+		        set -eux
+
+		        docker run --rm \
+		            -v "$WORKSPACE:/workspace" \
+		            aquasec/trivy:0.74.0 \
+		            config \
+		            --severity HIGH,CRITICAL \
+		            --exit-code 1 \
+		            /workspace/Dockerfile
+		    '''
+		}
+	    }
+	}
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    container('docker') {
+                        sh '''
+                            set -eux
+                            docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+                        '''
+
+                        if (env.IS_RELEASE == "true" || env.PIPELINE_TYPE == 'develop' || env.PIPELINE_TYPE == 'main') {
+                            sh '''
+                                set -eux
+                                docker tag "$IMAGE_NAME:$IMAGE_TAG" "$IMAGE_NAME:latest"
+                            '''
+                        } else {
+                            echo "Not a release build, skipping latest tag"
+                        }
+                    }
+                }
+            }
+        }
+	stage('Container Image Security Scan') {
+	    steps {
+		container('docker') {
+		    sh '''
+		        set -eux
+
+		        docker save "$IMAGE_NAME:$IMAGE_TAG" \
+		            -o "$WORKSPACE/weather-image.tar"
+
+			docker run --rm \
+			    -v "$WORKSPACE:/workspace" \
+			    aquasec/trivy:0.74.0 \
+			    image \
+			    --input /workspace/weather-image.tar \
+			    --scanners vuln \
+			    --severity CRITICAL \
+			    --exit-code 1
+			'''
+		}
+	    }
+	}
+
+        stage('Run Container and Test') {
+            steps {
+                container('docker') {
+                    sh '''
+                        set -eux
+
+                        apk add --no-cache curl || true
+
+                        docker rm -f weather-test || true
+
+                        docker run -d \
+                        --name weather-test \
+                        -p 8000:8000 \
+                        "$IMAGE_NAME:$IMAGE_TAG"
+
+                        echo "Waiting for app to start..."
+
+                        for i in $(seq 1 20); do
+                            if curl -f http://localhost:8000/; then
+                                echo "App is responding"
+                                break
+                            fi
+
+                            echo "App not ready yet..."
+                            docker ps -a
+                            docker logs weather-test || true
+                            sleep 3
+                        done
+
+                        curl -I http://localhost:8000/
+
+                        docker ps -a
+                        docker logs weather-test
+
+                        docker rm -f weather-test
+                    '''
+                }
+            }
+        }
+
+        stage('Push To DockerHub') {
+            when {
+                expression {
+                    return env.IS_RELEASE == "true" ||
+			            env.PIPELINE_TYPE == 'develop' ||
+                        env.PIPELINE_TYPE == 'main'
+                }
+            }
+            steps {
+                container('docker') {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub-creds',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )
+                    ]) {
+                        sh '''
+                            set -eux
+
+                            echo "$DOCKER_PASS" | docker login \
+                            -u "$DOCKER_USER" \
+                            --password-stdin
+
+                            docker push "$IMAGE_NAME:$IMAGE_TAG"
+                            docker push "$IMAGE_NAME:latest"
+                        '''
+                    }
+                }
+            }
+        }
+	stage('Sign Container Image') {
+	    when {
+		expression {
+		    env.IS_RELEASE == 'true' ||
+		    env.BRANCH_NAME == 'develop' ||
+		    env.BRANCH_NAME == 'main'
+		}
+	    }
+
+	    steps {
+		container('docker') {
+		    withCredentials([
+		        file(
+		            credentialsId: 'cosign-private-key',
+		            variable: 'COSIGN_KEY'
+		        ),
+		        string(
+		            credentialsId: 'cosign-password',
+		            variable: 'COSIGN_PASSWORD'
+		        ),
+		        usernamePassword(
+		            credentialsId: 'dockerhub-creds',
+		            usernameVariable: 'DOCKER_USER',
+		            passwordVariable: 'DOCKER_PASS'
+		        )
+		    ]) {
+		        sh '''
+		            set -eu
+
+		            docker run --rm \
+		            	--user 0:0 \
+		                -e COSIGN_PASSWORD="$COSIGN_PASSWORD" \
+		                -v "$COSIGN_KEY:/cosign.key:ro" \
+		                gcr.io/projectsigstore/cosign:v3.1.3 \
+		                sign \
+		                --yes \
+		                --key /cosign.key \
+		                --registry-username "$DOCKER_USER" \
+		                --registry-password "$DOCKER_PASS" \
+		                "$IMAGE_NAME:$IMAGE_TAG"
+		        '''
+		    }
+		}
+	    }
+	}
+	stage('Verify Container Signature') {
+	    when {
+		expression {
+		    env.IS_RELEASE == 'true' ||
+		    env.BRANCH_NAME == 'develop' ||
+		    env.BRANCH_NAME == 'main'
+		}
+	    }
+
+	    steps {
+		container('docker') {
+		    withCredentials([
+		        usernamePassword(
+		            credentialsId: 'dockerhub-creds',
+		            usernameVariable: 'DOCKER_USER',
+		            passwordVariable: 'DOCKER_PASS'
+		        )
+		    ]) {
+		        sh '''
+		            set -eu
+
+		            docker run --rm \
+		                -v "$WORKSPACE/cosign.pub:/cosign.pub:ro" \
+		                gcr.io/projectsigstore/cosign:v3.1.3 \
+		                verify \
+		                --key /cosign.pub \
+		                --registry-username "$DOCKER_USER" \
+		                --registry-password "$DOCKER_PASS" \
+		                "$IMAGE_NAME:$IMAGE_TAG"
+		        '''
+		    }
+		}
+	    }
+	}
+        stage('Update GitOps Repository') {
+            when {
+                expression {
+                    return env.PIPELINE_TYPE == 'develop' ||
+                        env.PIPELINE_TYPE == 'main' ||
+                        env.IS_RELEASE == 'true'
+                }
+            }
+
+            steps {
+                dir('gitops-repo') {
+                    deleteDir()
+
+                    git branch: 'main',
+                        credentialsId: 'gitlab-gitops-writer',
+                        url: 'http://gitlab.weather-app-as.com/ameenser/weather-app-gitops.git'
+
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'gitlab-gitops-writer',
+                            usernameVariable: 'GIT_USERNAME',
+                            passwordVariable: 'GIT_TOKEN'
+                        )
+                    ]) {
+                        sh '''
+                            set -e
+
+                            if [ "$PIPELINE_TYPE" = "develop" ] || [ "$PIPELINE_TYPE" = "main" ]; then
+                                VALUES_FILE="charts/weather-app/values-staging.yaml"
+                                ENVIRONMENT="staging"
+                            else
+                                VALUES_FILE="charts/weather-app/values-prod.yaml"
+                                ENVIRONMENT="production"
+                            fi
+
+                            echo "Environment: $ENVIRONMENT"
+                            echo "Updating image tag to: $IMAGE_TAG"
+
+                            sed -i \
+                                "/^image:/,/^[^[:space:]]/ s|^  tag:.*$|  tag: \"$IMAGE_TAG\"|" \
+                                 "$VALUES_FILE"
+
+                            echo "Updated image:"
+                            grep -A 3 '^image:' "$VALUES_FILE"
+
+                            if git diff --quiet -- "$VALUES_FILE"; then
+                                echo "Image tag is already $IMAGE_TAG"
+                                exit 0
+                            fi
+
+                            git config user.name "Jenkins"
+                            git config user.email "jenkins@weather-app-as.com"
+
+                            git add "$VALUES_FILE"
+                            git commit -m "Update $ENVIRONMENT image to $IMAGE_TAG"
+
+                            set +x
+
+                            git push \
+                            "http://${GIT_USERNAME}:${GIT_TOKEN}@gitlab.weather-app-as.com/ameenser/weather-app-gitops.git" \
+                            HEAD:main
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            container('docker') {
+                sh '''
+                    set +x
+
+                    command -v curl >/dev/null 2>&1 || \
+                        apk add --no-cache curl >/dev/null
+
+                    PAYLOAD=$(printf \
+                    '{"status":"%s","jobName":"%s","buildNumber":"%s","buildUrl":"%s","branch":"%s"}' \
+                    "SUCCESS" \
+                    "$JOB_NAME" \
+                    "$BUILD_NUMBER" \
+                    "$BUILD_URL" \
+                    "${BRANCH_NAME:-unknown}")
+
+                    echo "Make payload: $PAYLOAD"
+
+                    curl --fail-with-body --silent --show-error \
+                    --write-out '\\nMake HTTP status: %{http_code}\\n' \
+                    --request POST \
+                    --header 'Content-Type: application/json' \
+                    --data "$PAYLOAD" \
+                    "$MAKE_WEBHOOK_URL" \
+                    || echo "WARNING: Failed to send SUCCESS notification to Make"
+                '''
+            }
+        }
+
+        failure {
+            container('docker') {
+                withCredentials([
+                    string(
+                        credentialsId: 'n8n-jenkins-webhook-token',
+                        variable: 'N8N_WEBHOOK_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+
+                        command -v curl >/dev/null 2>&1 || \
+                            apk add --no-cache curl >/dev/null
+
+                        command -v jq >/dev/null 2>&1 || \
+                            apk add --no-cache jq >/dev/null
+
+                        MAKE_PAYLOAD=$(jq -n \
+                            --arg status "FAILURE" \
+                            --arg jobName "$JOB_NAME" \
+                            --arg buildNumber "$BUILD_NUMBER" \
+                            --arg buildUrl "$BUILD_URL" \
+                            --arg branch "${BRANCH_NAME:-unknown}" \
+                            --arg commit "${GIT_COMMIT:-unknown}" \
+                            '{
+                                status: $status,
+                                jobName: $jobName,
+                                buildNumber: ($buildNumber | tonumber),
+                                buildUrl: $buildUrl,
+                                branch: $branch,
+                                commit: $commit
+                            }')
+
+                        echo "Sending failure notification to Make"
+
+                        curl --fail-with-body \
+                        --silent \
+                        --show-error \
+                        --write-out '\\nMake HTTP status: %{http_code}\\n' \
+                        --request POST \
+                        --header 'Content-Type: application/json' \
+                        --data "$MAKE_PAYLOAD" \
+                        "$MAKE_WEBHOOK_URL" \
+                        || echo "WARNING: Failed to send FAILURE notification to Make"
+
+
+                        N8N_PAYLOAD=$(jq -n \
+                            --arg job_name "$JOB_NAME" \
+                            --arg build_number "$BUILD_NUMBER" \
+                            --arg build_url "$BUILD_URL" \
+                            --arg branch "${BRANCH_NAME:-unknown}" \
+                            --arg git_commit "${GIT_COMMIT:-unknown}" \
+                            --arg failed_stage "${FAILED_STAGE:-unknown}" \
+                            --arg result "FAILURE" \
+                            '{
+                                job_name: $job_name,
+                                build_number: $build_number,
+                                build_url: $build_url,
+                                branch: $branch,
+                                git_commit: $git_commit,
+                                failed_stage: $failed_stage,
+                                result: $result
+                            }')
+
+                        echo "Sending failure notification to n8n"
+
+                        curl --fail-with-body \
+                        --silent \
+                        --show-error \
+                        --write-out '\\nn8n HTTP status: %{http_code}\\n' \
+                        --request POST \
+                        --header 'Content-Type: application/json' \
+                        --header "X-N8N-TOKEN: ${N8N_WEBHOOK_TOKEN}" \
+                        --data "$N8N_PAYLOAD" \
+                        "https://n8n.weather-app-as.com/webhook/jenkins-failure" \
+                        || echo "WARNING: Failed to send FAILURE notification to n8n"
+                    '''
+                }
+            }
+        }
+    }
+}

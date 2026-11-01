@@ -1,0 +1,18 @@
+aws_region   = "us-east-1"
+project_name = "weather-app"
+
+# Copy the live IDs into an untracked terraform.tfvars. Do not add n8n here:
+# its old EBS volume was deleted and the storage root will create a fresh one.
+existing_volume_ids = {
+  alertmanager = "vol-replace-with-live-alertmanager-volume"
+  gitlab_data  = "vol-replace-with-live-gitlab-volume"
+  grafana      = "vol-replace-with-live-grafana-volume"
+  jenkins_home = "vol-replace-with-live-jenkins-volume"
+  prometheus   = "vol-replace-with-live-prometheus-volume"
+  vault        = "vol-replace-with-live-vault-volume"
+}
+
+enable_backups             = true
+backup_retention_days      = 30
+enable_recycle_bin         = true
+recycle_bin_retention_days = 7

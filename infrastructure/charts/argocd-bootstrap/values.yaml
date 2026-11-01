@@ -1,0 +1,3 @@
+repoURL: ""
+targetRevision: main
+applicationsPath: argocd/applications

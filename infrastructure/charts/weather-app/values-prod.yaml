@@ -1,0 +1,34 @@
+replicaCount: 2
+
+image:
+  repository: ameenser/weather-app
+  tag: 1.0.8
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: dockerhub-secret
+
+containerPort: 8000
+
+service:
+  name: weather-app-nodeport
+  type: NodePort
+  port: 80
+  targetPort: 8000
+  nodePort: 30082
+
+changeBackgroundColor: "false"
+
+serviceAccount:
+  create: true
+  name: weather-app-prod
+
+vault:
+  enabled: true
+  role: weather-app-prod
+  secretPath: kv/data/weather-app/prod/app
+  template: |
+    {{- with secret "kv/data/weather-app/prod/app" -}}
+    APP_ENV={{ .Data.data.APP_ENV }}
+    VAULT_TEST_VALUE={{ .Data.data.VAULT_TEST_VALUE }}
+    {{- end }}

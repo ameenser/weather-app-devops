@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server
+  namespace: argocd
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:619605943762:certificate/04e7a265-7786-4b7f-ac57-7ecb13bcf116
+
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/success-codes: '200'
+
+spec:
+  ingressClassName: alb
+
+  rules:
+    - host: argocd.weather-app-as.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443

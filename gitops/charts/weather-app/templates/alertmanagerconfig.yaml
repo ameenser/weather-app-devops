@@ -1,0 +1,33 @@
+{{- if .Values.monitoring.alertmanagerConfig.enabled }}
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: {{ .Release.Name }}-slack
+  labels:
+    app: weather-app
+spec:
+  route:
+    receiver: slack-weather-app
+    groupBy:
+      - alertname
+      - namespace
+    groupWait: 10s
+    groupInterval: 1m
+    repeatInterval: 30m
+
+  receivers:
+    - name: slack-weather-app
+      slackConfigs:
+        - apiURL:
+            name: {{ .Values.monitoring.alertmanagerConfig.secretName | quote }}
+            key: {{ .Values.monitoring.alertmanagerConfig.secretKey | quote }}
+          sendResolved: true
+          title: '{{`{{ .Status | toUpper }}`}}: {{`{{ .CommonLabels.alertname }}`}}'
+          text: |-
+            {{`{{ range .Alerts }}`}}
+            *Summary:* {{`{{ .Annotations.summary }}`}}
+            *Description:* {{`{{ .Annotations.description }}`}}
+            *Namespace:* {{`{{ .Labels.namespace }}`}}
+            *Severity:* {{`{{ .Labels.severity }}`}}
+            {{`{{ end }}`}}
+{{- end }}

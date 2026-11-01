@@ -1,0 +1,44 @@
+global:
+  enabled: true
+  tlsDisable: true
+
+injector:
+  enabled: true
+
+server:
+  enabled: true
+
+  dev:
+    enabled: false
+
+  standalone:
+    enabled: true
+
+  ha:
+    enabled: false
+
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: gp2
+    accessMode: ReadWriteOnce
+
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
+
+  service:
+    enabled: true
+    type: ClusterIP
+
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+ui:
+  enabled: true
+  serviceType: ClusterIP

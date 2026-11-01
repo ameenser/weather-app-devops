@@ -1,0 +1,149 @@
+# Rules and alerts prepared by kube-prometheus-stack.
+defaultRules:
+  create: true
+  rules:
+    # These components belong to the AWS-managed EKS control plane
+    # and cannot normally be scraped directly.
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+# Do not create unavailable control-plane monitoring targets in EKS.
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+prometheus:
+  service:
+    type: ClusterIP
+
+  prometheusSpec:
+    replicas: 1
+
+    # Keep metrics for no longer than 7 days or 15 GiB.
+    retention: 7d
+    retentionSize: 15GiB
+
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+
+    # Keep PVCs if the Prometheus StatefulSet is removed or scaled down.
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    # Discover ServiceMonitor resources from all namespaces.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    # Discover PodMonitor resources from all namespaces.
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+
+    # Discover PrometheusRule resources from all namespaces.
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi
+
+alertmanager:
+  enabled: true
+
+  service:
+    type: ClusterIP
+
+  alertmanagerSpec:
+    replicas: 1
+    retention: 120h
+
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi
+
+# Grafana admin credentials are injected directly from Vault.
+grafana:
+  enabled: true
+
+  deploymentStrategy:
+    type: Recreate
+    rollingUpdate: null
+  persistence:
+    enabled: true
+    type: pvc
+    existingClaim: kube-prometheus-stack-grafana
+    storageClassName: gp3
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+    finalizers:
+      - kubernetes.io/pvc-protection
+
+
+  serviceAccount:
+    create: true
+    name: grafana
+    automountServiceAccountToken: true
+
+  podAnnotations:
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/agent-pre-populate-only: "true"
+    vault.hashicorp.com/role: "grafana"
+
+    vault.hashicorp.com/agent-inject-secret-grafana-admin-user: "kv/data/monitoring/grafana"
+    vault.hashicorp.com/agent-inject-template-grafana-admin-user: |
+      {{- with secret "kv/data/monitoring/grafana" -}}
+      {{ .Data.data.admin_user }}
+      {{- end }}
+
+    vault.hashicorp.com/agent-inject-secret-grafana-admin-password: "kv/data/monitoring/grafana"
+    vault.hashicorp.com/agent-inject-template-grafana-admin-password: |
+      {{- with secret "kv/data/monitoring/grafana" -}}
+      {{ .Data.data.admin_password }}
+      {{- end }}
+
+  env:
+    GF_SECURITY_ADMIN_USER__FILE: /vault/secrets/grafana-admin-user
+    GF_SECURITY_ADMIN_PASSWORD__FILE: /vault/secrets/grafana-admin-password

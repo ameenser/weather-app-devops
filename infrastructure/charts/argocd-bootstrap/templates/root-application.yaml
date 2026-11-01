@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: weather-apps-root
+  namespace: {{ .Release.Namespace }}
+
+spec:
+  project: default
+
+  source:
+    repoURL: {{ required "repoURL is required" .Values.repoURL | quote }}
+    targetRevision: {{ .Values.targetRevision | quote }}
+    path: {{ .Values.applicationsPath | quote }}
+
+    directory:
+      recurse: true
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Release.Namespace }}
+
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
